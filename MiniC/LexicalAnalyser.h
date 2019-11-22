@@ -28,9 +28,10 @@ public:
 class Scanner
 {
 private:
-	std::istream _stream;
+	std::iostream _stream;
+	int _state;
+	char c;
 public: 
-	Scanner(std::istream& stream);
+	Scanner(std::iostream& stream);
 	Token getNextToken();
-	int count();
 };

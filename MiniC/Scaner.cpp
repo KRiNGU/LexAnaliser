@@ -1,6 +1,15 @@
 ﻿#include <iostream>
 #include <string>
 #include "LexicalAnalyser.h"
+#include <ctype.h>
+#include <map>
+
+std::map<char, LexemType> punctuation{ { '[', LexemType::lbracket}, {']', LexemType::rbracket}, { '(', LexemType::lpar}, {')', LexemType::lpar},
+{'{', LexemType::lbrace}, {'}', LexemType::rbrace}, {';', LexemType::semicolon}, {':', LexemType::colon}, {',', LexemType::comma} };
+
+std::map<std::string, LexemType> keywords{ {"int", LexemType::kwint}, {"char", LexemType::kwchar}, {"if", LexemType::kwif}, {"else", LexemType::kwelse}, {"switch", LexemType::kwswitch},
+{"case", LexemType::kwcase }, { "while", LexemType::kwwhile }, { "for", LexemType::kwfor }, { "return", LexemType::kwreturn }, { "in", LexemType::kwin }, { "out", LexemType::kwout }};
+	
 
 	Token::Token(LexemType type)
 	{
@@ -182,11 +191,18 @@
 		return _str;
 	}
 
-	Scanner::Scanner(std::istream& stream)
+	Scanner::Scanner(std::iostream& stream)
 	{
-		std::istream& _stream = stream;
-		int _state = 0;
+		std::iostream& _stream = stream;
 		char c;
+		int _state = 0;
+	}
+
+	Token Scanner::getNextToken()
+	{
+		int intValue;
+		char chValue;
+		std::string strValue = "";
 		for (;;)
 		{
 			_stream >> c;
@@ -194,10 +210,231 @@
 			{
 				return LexemType::eof;
 			}
-			switch (_state)
+			switch (Scanner::_state)
 			{
 			case 0:
-
+				if (c >= '0' && c <= '9')
+				{
+					_state = 1;
+					intValue = c;
+				}
+				else if (c == '\'')
+				{
+					_state = 2;
+				}
+				else if (c == '\"')
+				{
+					_state = 4;
+				}
+				else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_')
+				{
+					_state = 5;
+					strValue += c;
+				}
+				else if (c = '-')
+				{
+					_state = 6;
+				}
+				else if (c == '!')
+				{
+					_state = 7;
+				}
+				else if (c == '<')
+				{
+					_state = 8;
+				}
+				else if (c == '=')
+				{
+					_state = 9;
+				}
+				else if (c == '+')
+				{
+					_state = 10;
+				}
+				else if (c == '|')
+				{
+					_state = 11;
+				}
+				else if (c == '&')
+				{
+					_state = 12;
+				}
+				else if (c == '$')
+				{
+					_state = 0;
+					return LexemType::eof;
+				}
+				else if (c == '>')
+				{
+					_state = 0;
+					return LexemType::opgt;
+				}
+				else if (c == '(' || c == ')' || c == '{' || c == '}' || c == '[' || c == ']' || c == ';' || c == ',' || c == ':')
+				{
+					_state = 0;
+					LexemType result = punctuation[c];
+					return result;
+				}
+				else if (c == '*')
+				{
+					_state = 0;
+					return LexemType::opmult;
+				}
+				else if (iswspace(c))
+				{
+					_state = 0;
+				}
+				else
+				{
+					return Token(LexemType::error, "no separator between operation characters");
+				}
+			case 1:
+				if (c >= '0' && c <= '9')
+				{
+					intValue += c;
+				}
+				else
+				{
+					_state = 0;
+					_stream << c;
+					return Token(intValue);
+				}
+			case 2:
+				if (c == '\'')
+				{
+					return Token(LexemType::error, "empty character constant");
+				}
+				else
+				{
+					chValue = c;
+					_state = 3;
+				}
+			case 3:
+				if (c == '\'')
+				{
+					_state = 0;
+					return Token(c);
+				}
+				else
+				{
+					return Token(LexemType::error, "character constant containing more than one character");
+				}
+			case 4:
+				if (c == '$')
+				{
+					return Token(LexemType::error, "language unsupported character");
+				}
+				else if (c == '\"')
+				{
+					_state = 0;
+					return Token(LexemType::str, strValue);
+				}
+				else
+				{
+					strValue += c;
+				}
+			case 5:
+				if (((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') || (c <= '9' && c >= '0'))
+				{
+					strValue += c;
+				}
+				else
+				{
+					std::map<std::string, LexemType>::iterator it;
+					it = keywords.find(strValue);
+					if (it != keywords.end())
+					{
+						_state = 0;
+						_stream << c;
+						return keywords[strValue];
+					}
+					else
+					{
+						_state = 0;
+						_stream << c;
+						return Token(LexemType::id, strValue);
+					}
+				}
+			case 6:
+				if (c >= '0' && c <= '9')
+				{
+					_state = 1;
+					intValue = -1 * c;
+				}
+				else
+				{
+					_state = 0;
+					_stream << c;
+					return Token(LexemType::opminus);
+				}
+			case 7:
+				if (c == '!')
+				{
+					_state = 0;
+					return Token(LexemType::opne);
+				}
+				else
+				{
+					_state = 0;
+					_stream << c;
+					return Token(LexemType::opnot);
+				}
+			case 8:
+				if (c == '=')
+				{
+					_state = 0;
+					return Token(LexemType::ople);
+				}
+				else
+				{
+					_state = 0;
+					_stream << c;
+					return Token(LexemType::oplt);
+				}
+			case 9:
+				if (c == '=')
+				{
+					_state = 0;
+					return Token(LexemType::opassign);
+				}
+				else
+				{
+					_state = 0;
+					_stream << c;
+					return Token(LexemType::opeq);
+				}
+			case 10:
+				if (c == '+')
+				{
+					_state = 0;
+					return Token(LexemType::opinc);
+				}
+				else
+				{
+					_state = 0;
+					_stream << c;
+					return Token(LexemType::opplus);
+				}
+			case 11:
+				if (c == '|')
+				{
+					_state = 0;
+					return Token(LexemType::opor);
+				}
+				else
+				{
+					return Token(LexemType::error, "single character |");
+				}
+			case 12:
+				if (c == '&')
+				{
+					_state = 0;
+					return Token(LexemType::opand);
+				}
+				else
+				{
+					return Token(LexemType::error, "single character &");
+				}
 			}
 		}
 	}
